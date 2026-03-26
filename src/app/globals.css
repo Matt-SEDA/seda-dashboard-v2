@@ -408,6 +408,13 @@ input, select { font-family: inherit; }
   border-color: #333333;
 }
 
+.filter-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .filter-pill__count {
   font-size: 1rem;
   opacity: 0.7;

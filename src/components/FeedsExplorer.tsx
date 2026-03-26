@@ -34,6 +34,15 @@ function getTypeBadgeClass(type: string): string {
   return 'feed-type-badge--default';
 }
 
+const TYPE_DOT_COLORS: Record<string, string> = {
+  Crypto: '#10B981',
+  Equities: '#a78bfa',
+  Forex: '#60a5fa',
+  Commodities: '#F59E0B',
+  ETF: '#f97316',
+  Metals: '#fbbf24',
+};
+
 function SearchIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -176,28 +185,6 @@ export default function FeedsExplorer({ feeds }: Props) {
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="stats-bar fade-up" style={{ animationDelay: '0.06s' }}>
-        {FEED_TYPE_ORDER.slice(1, 7).map((type) => (
-          <div className="stat-pill" key={type}>
-            <span
-              className="stat-pill__dot"
-              style={{
-                background:
-                  type === 'Crypto' ? '#10B981'
-                  : type === 'Equities' ? '#a78bfa'
-                  : type === 'Forex' ? '#60a5fa'
-                  : type === 'Commodities' ? '#ffcc00'
-                  : type === 'ETF' ? '#f97316'
-                  : '#fbbf24',
-              }}
-            />
-            <span className="stat-pill__value">{(typeCounts[type] || 0).toLocaleString()}</span>
-            {type}
-          </div>
-        ))}
-      </div>
-
       {/* Filters */}
       <div className="filter-bar fade-up" style={{ animationDelay: '0.12s' }}>
         <div className="filter-bar__search-wrap">
@@ -218,6 +205,9 @@ export default function FeedsExplorer({ feeds }: Props) {
               className={`filter-pill ${activeType === type ? 'active' : ''}`}
               onClick={() => setActiveType(type)}
             >
+              {TYPE_DOT_COLORS[type] && (
+                <span className="filter-pill__dot" style={{ background: TYPE_DOT_COLORS[type] }} />
+              )}
               {type}
               <span className="filter-pill__count">{(typeCounts[type] || 0).toLocaleString()}</span>
             </button>
