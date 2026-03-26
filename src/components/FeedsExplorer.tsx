@@ -184,10 +184,10 @@ export default function FeedsExplorer({ feeds }: Props) {
               className="stat-pill__dot"
               style={{
                 background:
-                  type === 'Crypto' ? '#1fe9d1'
+                  type === 'Crypto' ? '#10B981'
                   : type === 'Equities' ? '#a78bfa'
                   : type === 'Forex' ? '#60a5fa'
-                  : type === 'Commodities' ? '#ebf374'
+                  : type === 'Commodities' ? '#ffcc00'
                   : type === 'ETF' ? '#f97316'
                   : '#fbbf24',
               }}
