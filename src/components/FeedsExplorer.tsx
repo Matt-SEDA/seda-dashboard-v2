@@ -41,10 +41,10 @@ const TYPE_DOT_COLORS: Record<string, string> = {
   Commodities: '#F59E0B',
   ETF: '#f97316',
   Metals: '#fbbf24',
-  'Crypto Redemption Rate': '#34D399',
-  'Crypto Index': '#14B8A6',
-  'Crypto NAV': '#2DD4BF',
-  'Crypto xStock': '#5EEAD4',
+  'Crypto Redemption Rate': '#ec4899',
+  'Crypto Index': '#06b6d4',
+  'Crypto NAV': '#8b5cf6',
+  'Crypto xStock': '#ef4444',
 };
 
 function SearchIcon() {
