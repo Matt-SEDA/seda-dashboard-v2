@@ -19,7 +19,7 @@ const FEED_TYPE_ORDER = [
 
 const SOURCES = ['Nobi Labs', 'Pyth Core', 'dxFeed'];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 100;
 
 type SortCol = 'base' | 'asset_name' | 'feed_type' | 'data_source' | 'identifier' | 'kind' | 'quote';
 

@@ -403,9 +403,9 @@ input, select { font-family: inherit; }
 }
 
 .filter-pill.active {
-  color: #000000;
-  background: var(--accent);
-  border-color: var(--accent);
+  color: #FFFFFF;
+  background: #1a1a1a;
+  border-color: #333333;
 }
 
 .filter-pill__count {
