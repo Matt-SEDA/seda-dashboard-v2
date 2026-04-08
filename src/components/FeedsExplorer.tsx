@@ -1,50 +1,73 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { FeedEntry, FeedRow } from '@/lib/types';
+import { FeedEntry } from '@/lib/types';
 
 const FEED_TYPE_ORDER = [
   'All',
   'Crypto',
-  'Equities',
-  'Forex',
+  'Equity',
   'ETF',
-  'Commodities',
+  'Forex',
+  'Commodity',
   'Metals',
+  'CFD',
   'Crypto Redemption Rate',
   'Crypto Index',
   'Crypto NAV',
-  'Crypto xStock',
+  'Index',
+  'ECO',
+  'Rates',
+  'Fixed Income',
+  'Derivatives',
+  'Prediction Market',
+  'Tokenized',
+  'Other',
 ];
 
-const SOURCES = ['Nobi Labs', 'Pyth Core', 'dxFeed'];
+const SOURCES = ['Blocksize', 'dxFeed', 'Pyth', 'Nobi Labs', 'Chainlink'];
 
 const PAGE_SIZE = 100;
 
-type SortCol = 'base' | 'asset_name' | 'feed_type' | 'data_source' | 'identifier' | 'kind' | 'quote';
+type SortCol = 'base' | 'asset_name' | 'feed_type' | 'providers';
 
 function getTypeBadgeClass(type: string): string {
   const t = type.toLowerCase();
   if (t.includes('crypto')) return 'feed-type-badge--crypto';
-  if (t === 'equities') return 'feed-type-badge--equities';
+  if (t === 'equity') return 'feed-type-badge--equities';
   if (t === 'forex') return 'feed-type-badge--forex';
-  if (t === 'commodities') return 'feed-type-badge--commodities';
+  if (t === 'commodity') return 'feed-type-badge--commodities';
   if (t === 'etf') return 'feed-type-badge--etf';
   if (t === 'metals') return 'feed-type-badge--metals';
+  if (t === 'cfd') return 'feed-type-badge--cfd';
+  if (t === 'index') return 'feed-type-badge--index';
+  if (t === 'eco') return 'feed-type-badge--eco';
+  if (t === 'rates' || t === 'fixed income') return 'feed-type-badge--rates';
+  if (t === 'derivatives') return 'feed-type-badge--derivatives';
+  if (t === 'prediction market') return 'feed-type-badge--prediction';
+  if (t === 'tokenized') return 'feed-type-badge--tokenized';
   return 'feed-type-badge--default';
 }
 
 const TYPE_DOT_COLORS: Record<string, string> = {
   Crypto: '#10B981',
-  Equities: '#a78bfa',
+  Equity: '#a78bfa',
   Forex: '#60a5fa',
-  Commodities: '#F59E0B',
+  Commodity: '#F59E0B',
   ETF: '#f97316',
   Metals: '#fbbf24',
+  CFD: '#94a3b8',
   'Crypto Redemption Rate': '#ec4899',
   'Crypto Index': '#06b6d4',
   'Crypto NAV': '#8b5cf6',
-  'Crypto xStock': '#ef4444',
+  Index: '#38bdf8',
+  ECO: '#34d399',
+  Rates: '#c084fc',
+  'Fixed Income': '#a5b4fc',
+  Derivatives: '#fb923c',
+  'Prediction Market': '#f472b6',
+  Tokenized: '#2dd4bf',
+  Other: '#737373',
 };
 
 function SearchIcon() {
@@ -56,23 +79,26 @@ function SearchIcon() {
   );
 }
 
-/** Flatten grouped FeedEntry[] into one row per identifier */
-function flattenFeeds(feeds: FeedEntry[]): FeedRow[] {
-  const rows: FeedRow[] = [];
-  for (const feed of feeds) {
-    for (const id of feed.identifiers) {
-      rows.push({
-        base: feed.base,
-        asset_name: feed.asset_name,
-        feed_type: feed.feed_type,
-        data_source: id.data_source,
-        identifier: id.id,
-        kind: id.kind,
-        quote: id.quote,
-      });
-    }
-  }
-  return rows;
+/** One row per feed — providers derived from identifiers */
+interface FeedRow {
+  base: string;
+  asset_name: string;
+  feed_type: string;
+  providers: string[];
+  providerCount: number;
+}
+
+function toRows(feeds: FeedEntry[]): FeedRow[] {
+  return feeds.map((f) => {
+    const providers = [...new Set(f.identifiers.map((id) => id.data_source))];
+    return {
+      base: f.base,
+      asset_name: f.asset_name,
+      feed_type: f.feed_type,
+      providers,
+      providerCount: providers.length,
+    };
+  });
 }
 
 interface Props {
@@ -81,16 +107,15 @@ interface Props {
 
 export default function FeedsExplorer({ feeds }: Props) {
   const [search, setSearch] = useState('');
-  const [activeType, setActiveType] = useState('All');
+  const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set());
   const [activeSources, setActiveSources] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [sortCol, setSortCol] = useState<SortCol>('base');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // Flatten once
-  const allRows = useMemo(() => flattenFeeds(feeds), [feeds]);
+  const allRows = useMemo(() => toRows(feeds), [feeds]);
 
-  // Type counts (on flat rows)
+  // Type counts (one per unique feed)
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = { All: allRows.length };
     for (const r of allRows) {
@@ -99,11 +124,13 @@ export default function FeedsExplorer({ feeds }: Props) {
     return counts;
   }, [allRows]);
 
-  // Source counts
+  // Source counts (how many feeds each provider supports)
   const sourceCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const r of allRows) {
-      counts[r.data_source] = (counts[r.data_source] || 0) + 1;
+      for (const p of r.providers) {
+        counts[p] = (counts[p] || 0) + 1;
+      }
     }
     return counts;
   }, [allRows]);
@@ -112,12 +139,12 @@ export default function FeedsExplorer({ feeds }: Props) {
   const filtered = useMemo(() => {
     let result = allRows;
 
-    if (activeType !== 'All') {
-      result = result.filter((r) => r.feed_type === activeType);
+    if (activeTypes.size > 0) {
+      result = result.filter((r) => activeTypes.has(r.feed_type));
     }
 
     if (activeSources.size > 0) {
-      result = result.filter((r) => activeSources.has(r.data_source));
+      result = result.filter((r) => r.providers.some((p) => activeSources.has(p)));
     }
 
     if (search.trim()) {
@@ -126,25 +153,42 @@ export default function FeedsExplorer({ feeds }: Props) {
         (r) =>
           r.base.toLowerCase().includes(q) ||
           r.asset_name.toLowerCase().includes(q) ||
-          r.identifier.toLowerCase().includes(q) ||
-          r.quote.toLowerCase().includes(q) ||
-          r.data_source.toLowerCase().includes(q)
+          r.feed_type.toLowerCase().includes(q) ||
+          r.providers.some((p) => p.toLowerCase().includes(q))
       );
     }
 
     result = [...result].sort((a, b) => {
-      const cmp = (a[sortCol] ?? '').localeCompare(b[sortCol] ?? '');
+      let cmp: number;
+      if (sortCol === 'providers') {
+        cmp = a.providerCount - b.providerCount;
+      } else {
+        cmp = (a[sortCol] ?? '').localeCompare(b[sortCol] ?? '');
+      }
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
     return result;
-  }, [allRows, activeType, activeSources, search, sortCol, sortDir]);
+  }, [allRows, activeTypes, activeSources, search, sortCol, sortDir]);
 
   // Pagination
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [activeType, activeSources, search]);
+  useEffect(() => { setPage(1); }, [activeTypes, activeSources, search]);
+
+  const toggleType = useCallback((type: string) => {
+    if (type === 'All') {
+      setActiveTypes(new Set());
+      return;
+    }
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
 
   const toggleSource = useCallback((source: string) => {
     setActiveSources((prev) => {
@@ -185,8 +229,16 @@ export default function FeedsExplorer({ feeds }: Props) {
           {' '}Explore Feeds
         </h1>
         <p className="hero__subtitle">
-          Explore {allRows.length.toLocaleString()} data feed identifiers across crypto, equities, forex, commodities, and more.
+          Explore {allRows.length.toLocaleString()} available data feeds across crypto, equities, forex, commodities, and more.
         </p>
+        <div className="hero__ctas">
+          <a href="https://seda-programmability.vercel.app/programmability" className="hero__cta hero__cta--primary" target="_blank" rel="noopener noreferrer">
+            View Programs
+          </a>
+          <a href="https://seda-inbound-form.vercel.app/" className="hero__cta hero__cta--glass" target="_blank" rel="noopener noreferrer">
+            Contact
+          </a>
+        </div>
       </div>
 
       {/* Filters */}
@@ -196,7 +248,7 @@ export default function FeedsExplorer({ feeds }: Props) {
           <input
             className="filter-bar__search"
             type="text"
-            placeholder="Search by symbol, name, identifier, or quote..."
+            placeholder="Search by ticker, company name, asset type..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -206,8 +258,8 @@ export default function FeedsExplorer({ feeds }: Props) {
           {FEED_TYPE_ORDER.map((type) => (
             <button
               key={type}
-              className={`filter-pill ${activeType === type ? 'active' : ''}`}
-              onClick={() => setActiveType(type)}
+              className={`filter-pill ${type === 'All' ? (activeTypes.size === 0 ? 'active' : '') : activeTypes.has(type) ? 'active' : ''}`}
+              onClick={() => toggleType(type)}
             >
               {TYPE_DOT_COLORS[type] && (
                 <span className="filter-pill__dot" style={{ background: TYPE_DOT_COLORS[type] }} />
@@ -236,7 +288,7 @@ export default function FeedsExplorer({ feeds }: Props) {
       <div className="results-info fade-up" style={{ animationDelay: '0.18s' }}>
         <span className="results-info__count">
           Showing <strong>{paginated.length}</strong> of <strong>{filtered.length.toLocaleString()}</strong> feeds
-          {activeType !== 'All' && <> in <strong>{activeType}</strong></>}
+          {activeTypes.size > 0 && <> in <strong>{[...activeTypes].join(', ')}</strong></>}
         </span>
       </div>
 
@@ -251,10 +303,7 @@ export default function FeedsExplorer({ feeds }: Props) {
                     ['base', 'Symbol'],
                     ['asset_name', 'Name'],
                     ['feed_type', 'Type'],
-                    ['data_source', 'Source'],
-                    ['identifier', 'Identifier'],
-                    ['kind', 'Kind'],
-                    ['quote', 'Quote'],
+                    ['providers', 'Providers'],
                   ] as [SortCol, string][]).map(([col, label]) => (
                     <th
                       key={col}
@@ -269,7 +318,7 @@ export default function FeedsExplorer({ feeds }: Props) {
               </thead>
               <tbody>
                 {paginated.map((row, i) => (
-                  <tr key={`${row.base}-${row.identifier}-${row.data_source}-${i}`}>
+                  <tr key={`${row.base}-${i}`}>
                     <td><span className="feed-base">{row.base}</span></td>
                     <td><span className="feed-name">{row.asset_name}</span></td>
                     <td>
@@ -277,15 +326,18 @@ export default function FeedsExplorer({ feeds }: Props) {
                         {row.feed_type}
                       </span>
                     </td>
-                    <td><span className="feed-source-tag">{row.data_source}</span></td>
-                    <td><span className="feed-identifier">{row.identifier}</span></td>
-                    <td><span className="feed-kind-badge">{row.kind}</span></td>
-                    <td><span className="feed-quotes">{row.quote}</span></td>
+                    <td>
+                      <span className="feed-providers">
+                        {row.providers.map((p) => (
+                          <span key={p} className="feed-source-tag">{p}</span>
+                        ))}
+                      </span>
+                    </td>
                   </tr>
                 ))}
                 {paginated.length === 0 && (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={4}>
                       <div className="empty-state">
                         <div className="empty-state__icon">&#x1F50D;</div>
                         <p className="empty-state__title">No feeds found</p>
@@ -304,7 +356,7 @@ export default function FeedsExplorer({ feeds }: Props) {
       <div className="mobile-cards fade-up" style={{ animationDelay: '0.24s' }}>
         <div className="feed-cards">
           {paginated.map((row, i) => (
-            <div key={`${row.base}-${row.identifier}-${row.data_source}-${i}`} className="feed-card">
+            <div key={`${row.base}-${i}`} className="feed-card">
               <div className="feed-card__header">
                 <span className="feed-card__base">{row.base}</span>
                 <span className={`feed-type-badge ${getTypeBadgeClass(row.feed_type)}`}>
@@ -312,13 +364,10 @@ export default function FeedsExplorer({ feeds }: Props) {
                 </span>
               </div>
               <p className="feed-card__name">{row.asset_name}</p>
-              <div className="feed-card__identifier">
-                <span className="feed-identifier">{row.identifier}</span>
-              </div>
               <div className="feed-card__meta">
-                <span className="feed-source-tag">{row.data_source}</span>
-                <span className="feed-kind-badge">{row.kind}</span>
-                <span className="feed-quotes">{row.quote}</span>
+                {row.providers.map((p) => (
+                  <span key={p} className="feed-source-tag">{p}</span>
+                ))}
               </div>
             </div>
           ))}

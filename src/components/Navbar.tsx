@@ -11,7 +11,7 @@ const NAV_LINKS = [
   { label: 'Trends', href: 'https://seda.xyz/trends' },
 ];
 
-const CTA_HREF = 'https://discord.com/invite/seda';
+const CTA_HREF = 'https://seda-inbound-form.vercel.app/';
 
 function SedaLogo() {
   return (
